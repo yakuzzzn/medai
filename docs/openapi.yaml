@@ -1,0 +1,986 @@
+openapi: 3.1.0
+info:
+  title: AI Medical Scribe API
+  description: API for AI-powered medical documentation system
+  version: 1.0.0
+  contact:
+    name: MedAI Team
+    email: support@medai.com
+  license:
+    name: Proprietary
+    url: https://medai.com/license
+
+servers:
+  - url: https://api.medai.com/v1
+    description: Production server
+  - url: https://api-staging.medai.com/v1
+    description: Staging server
+  - url: http://localhost:3000/v1
+    description: Local development
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+paths:
+  /auth/login:
+    post:
+      summary: Authenticate user
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "dr.smith@centralclinic.com"
+                password:
+                  type: string
+                  format: password
+                  example: "securepassword123"
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  user:
+                    $ref: '#/components/schemas/User'
+                  clinic:
+                    $ref: '#/components/schemas/Clinic'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+
+  /auth/refresh:
+    post:
+      summary: Refresh authentication token
+      tags: [Authentication]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+        '401':
+          description: Invalid or expired token
+
+  /audio:
+    post:
+      summary: Upload audio recording
+      tags: [Audio]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Audio file (MP3, WAV, M4A)
+                patientId:
+                  type: string
+                  description: FHIR Patient ID
+                  example: "patient-123"
+                encounterId:
+                  type: string
+                  description: FHIR Encounter ID
+                  example: "encounter-456"
+                metadata:
+                  type: object
+                  additionalProperties: true
+                  description: Additional metadata
+      responses:
+        '201':
+          description: Audio uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadAudioResponse'
+        '400':
+          description: Invalid request
+        '413':
+          description: File too large
+        '415':
+          description: Unsupported file type
+
+  /audio/{audioId}:
+    get:
+      summary: Get audio recording details
+      tags: [Audio]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: audioId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Audio recording details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioRecording'
+        '404':
+          description: Audio recording not found
+
+  /audio/{audioId}/download:
+    get:
+      summary: Download audio file
+      tags: [Audio]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: audioId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Audio file
+          content:
+            audio/*:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Audio file not found
+
+  /drafts:
+    get:
+      summary: List user's drafts
+      tags: [Drafts]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed]
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: List of drafts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  drafts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Draft'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /drafts/{draftId}:
+    get:
+      summary: Get draft with full details
+      tags: [Drafts]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: draftId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Draft details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetDraftResponse'
+        '404':
+          description: Draft not found
+
+    put:
+      summary: Update draft
+      tags: [Drafts]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: draftId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDraftRequest'
+      responses:
+        '200':
+          description: Draft updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Draft'
+        '404':
+          description: Draft not found
+        '422':
+          description: Validation error
+
+  /coding/suggestions:
+    post:
+      summary: Get coding suggestions
+      tags: [Coding]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetCodingSuggestionsRequest'
+      responses:
+        '200':
+          description: Coding suggestions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetCodingSuggestionsResponse'
+
+  /ehr/sync:
+    post:
+      summary: Sync draft to EHR
+      tags: [EHR]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncToEHRRequest'
+      responses:
+        '202':
+          description: Sync initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncToEHRResponse'
+        '404':
+          description: Draft not found
+        '422':
+          description: Validation error
+
+  /ehr/encounters:
+    get:
+      summary: Get FHIR encounters for today
+      tags: [EHR]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+            default: "2024-01-15"
+        - name: practitionerId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of encounters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  encounters:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FHIREncounter'
+
+  /ehr/patients:
+    get:
+      summary: Search FHIR patients
+      tags: [EHR]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Search query (name, ID)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: List of patients
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  patients:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FHIRPatient'
+
+  /users/profile:
+    get:
+      summary: Get current user profile
+      tags: [Users]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+    put:
+      summary: Update user profile
+      tags: [Users]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                fhirPractitionerId:
+                  type: string
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /analytics/dashboard:
+    get:
+      summary: Get analytics dashboard data
+      tags: [Analytics]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Dashboard analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalRecordings:
+                    type: integer
+                  averageProcessingTime:
+                    type: number
+                  timeSavedPerDay:
+                    type: number
+                  accuracyMetrics:
+                    type: object
+                    properties:
+                      wordErrorRate:
+                        type: number
+                      soapAccuracy:
+                        type: number
+                      codingAccuracy:
+                        type: number
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+          enum: [doctor, nurse, admin]
+        clinicId:
+          type: string
+          format: uuid
+        fhirPractitionerId:
+          type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        lastLogin:
+          type: string
+          format: date-time
+
+    Clinic:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        fhirOrganizationId:
+          type: string
+        region:
+          type: string
+        timezone:
+          type: string
+        settings:
+          type: object
+          additionalProperties: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AudioRecording:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        clinicId:
+          type: string
+          format: uuid
+        patientId:
+          type: string
+        encounterId:
+          type: string
+        filePath:
+          type: string
+        fileSize:
+          type: integer
+        durationSeconds:
+          type: integer
+        encryptionKeyId:
+          type: string
+        uploadStatus:
+          type: string
+          enum: [pending, uploading, completed, failed]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Transcript:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        audioId:
+          type: string
+          format: uuid
+        rawText:
+          type: string
+        confidenceScore:
+          type: number
+          minimum: 0
+          maximum: 1
+        wordErrorRate:
+          type: number
+          minimum: 0
+          maximum: 1
+        processingStatus:
+          type: string
+          enum: [pending, processing, completed, failed]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SOAPData:
+      type: object
+      required:
+        - subjective
+        - objective
+        - assessment
+        - plan
+      properties:
+        subjective:
+          type: string
+        objective:
+          type: string
+        assessment:
+          type: string
+        plan:
+          type: string
+
+    ConfidenceScores:
+      type: object
+      required:
+        - subjective
+        - objective
+        - assessment
+        - plan
+      properties:
+        subjective:
+          type: number
+          minimum: 0
+          maximum: 1
+        objective:
+          type: number
+          minimum: 0
+          maximum: 1
+        assessment:
+          type: number
+          minimum: 0
+          maximum: 1
+        plan:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    ICDCode:
+      type: object
+      properties:
+        code:
+          type: string
+        description:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    RxCode:
+      type: object
+      properties:
+        code:
+          type: string
+        description:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    Draft:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        transcriptId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        clinicId:
+          type: string
+          format: uuid
+        soapData:
+          $ref: '#/components/schemas/SOAPData'
+        confidenceScores:
+          $ref: '#/components/schemas/ConfidenceScores'
+        icdCodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ICDCode'
+        rxCodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RxCode'
+        processingStatus:
+          type: string
+          enum: [pending, processing, completed, failed]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Note:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        draftId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        clinicId:
+          type: string
+          format: uuid
+        fhirObservationId:
+          type: string
+        fhirEncounterId:
+          type: string
+        soapData:
+          $ref: '#/components/schemas/SOAPData'
+        icdCodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ICDCode'
+        rxCodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RxCode'
+        syncStatus:
+          type: string
+          enum: [pending, syncing, completed, failed]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UploadAudioResponse:
+      type: object
+      properties:
+        audioId:
+          type: string
+          format: uuid
+        uploadStatus:
+          type: string
+        estimatedProcessingTime:
+          type: integer
+          description: Estimated processing time in seconds
+
+    GetDraftResponse:
+      type: object
+      properties:
+        draft:
+          $ref: '#/components/schemas/Draft'
+        transcript:
+          $ref: '#/components/schemas/Transcript'
+        audio:
+          $ref: '#/components/schemas/AudioRecording'
+
+    UpdateDraftRequest:
+      type: object
+      properties:
+        soapData:
+          type: object
+          properties:
+            subjective:
+              type: string
+            objective:
+              type: string
+            assessment:
+              type: string
+            plan:
+              type: string
+        icdCodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ICDCode'
+        rxCodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RxCode'
+
+    SyncToEHRRequest:
+      type: object
+      required:
+        - draftId
+      properties:
+        draftId:
+          type: string
+          format: uuid
+        fhirEncounterId:
+          type: string
+        fhirPatientId:
+          type: string
+
+    SyncToEHRResponse:
+      type: object
+      properties:
+        noteId:
+          type: string
+          format: uuid
+        fhirObservationId:
+          type: string
+        fhirEncounterId:
+          type: string
+        syncStatus:
+          type: string
+          enum: [pending, syncing, completed, failed]
+
+    CodingSuggestion:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [icd, rx]
+        code:
+          type: string
+        description:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        context:
+          type: string
+
+    GetCodingSuggestionsRequest:
+      type: object
+      required:
+        - text
+        - type
+      properties:
+        text:
+          type: string
+        type:
+          type: string
+          enum: [icd, rx]
+        limit:
+          type: integer
+          default: 10
+
+    GetCodingSuggestionsResponse:
+      type: object
+      properties:
+        suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/CodingSuggestion'
+
+    FHIRPatient:
+      type: object
+      properties:
+        id:
+          type: string
+        identifier:
+          type: array
+          items:
+            type: object
+            properties:
+              system:
+                type: string
+              value:
+                type: string
+        name:
+          type: array
+          items:
+            type: object
+            properties:
+              use:
+                type: string
+              text:
+                type: string
+              family:
+                type: string
+              given:
+                type: array
+                items:
+                  type: string
+        birthDate:
+          type: string
+          format: date
+        gender:
+          type: string
+
+    FHIREncounter:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        class:
+          type: object
+          properties:
+            system:
+              type: string
+            code:
+              type: string
+            display:
+              type: string
+        subject:
+          type: object
+          properties:
+            reference:
+              type: string
+        participant:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    coding:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          system:
+                            type: string
+                          code:
+                            type: string
+                          display:
+                            type: string
+              individual:
+                type: object
+                properties:
+                  reference:
+                    type: string
+        period:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date-time
+            end:
+              type: string
+              format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    APIError:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Audio
+    description: Audio recording management
+  - name: Drafts
+    description: Draft note management
+  - name: Coding
+    description: ICD-10 and RxNorm coding
+  - name: EHR
+    description: Electronic Health Record integration
+  - name: Users
+    description: User profile management
+  - name: Analytics
+    description: Analytics and reporting 

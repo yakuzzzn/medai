@@ -1,0 +1,216 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: medai_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install Node.js dependencies
+      working-directory: ./backend
+      run: npm ci
+    
+    - name: Install Python dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run backend tests
+      working-directory: ./backend
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/medai_test
+        REDIS_URL: redis://localhost:6379
+        NODE_ENV: test
+      run: |
+        npm run test
+        npm run test:coverage
+    
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage/lcov.info
+        flags: backend
+        name: backend-coverage
+
+  test-web:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: web/package-lock.json
+    
+    - name: Install dependencies
+      working-directory: ./web
+      run: npm ci
+    
+    - name: Run web tests
+      working-directory: ./web
+      run: |
+        npm run test
+        npm run test:coverage
+    
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./web/coverage/lcov.info
+        flags: web
+        name: web-coverage
+
+  test-mobile:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: mobile/package-lock.json
+    
+    - name: Install dependencies
+      working-directory: ./mobile
+      run: npm ci
+    
+    - name: Run mobile tests
+      working-directory: ./mobile
+      run: npm run test
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+    
+    - name: Lint backend
+      working-directory: ./backend
+      run: npm run lint
+    
+    - name: Lint web
+      working-directory: ./web
+      run: npm run lint
+    
+    - name: Lint mobile
+      working-directory: ./mobile
+      run: npm run lint
+
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run security audit
+      run: |
+        cd backend && npm audit --audit-level moderate
+        cd ../web && npm audit --audit-level moderate
+        cd ../mobile && npm audit --audit-level moderate
+
+  build:
+    needs: [test-backend, test-web, test-mobile, lint, security]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    - name: Build and push Docker images
+      run: |
+        docker build -f backend/Dockerfile.gateway -t medai/gateway:${{ github.sha }} ./backend
+        docker build -f backend/Dockerfile.python -t medai/scribe-core:${{ github.sha }} ./backend
+        docker build -f web/Dockerfile -t medai/web:${{ github.sha }} ./web
+        
+        docker push medai/gateway:${{ github.sha }}
+        docker push medai/scribe-core:${{ github.sha }}
+        docker push medai/web:${{ github.sha }}
+
+  deploy-staging:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+    - name: Deploy to staging
+      run: |
+        echo "Deploying to staging environment"
+        # Add your staging deployment logic here
+
+  deploy-production:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Deploy to production
+      run: |
+        echo "Deploying to production environment"
+        # Add your production deployment logic here 
