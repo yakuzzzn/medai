@@ -14,7 +14,6 @@
     "react-hot-toast": "^2.4.1",
     "lucide-react": "^0.294.0",
     "recharts": "^2.8.0",
-    "react-json-view": "^1.21.3",
     "react-syntax-highlighter": "^15.5.0",
     "date-fns": "^2.30.0",
     "clsx": "^2.0.0",
@@ -36,7 +35,6 @@
   "devDependencies": {
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
-    "@types/react-json-view": "^1.21.3",
     "@types/react-syntax-highlighter": "^15.5.11",
     "@types/react-beautiful-dnd": "^13.1.8",
     "@types/react-window": "^1.8.8",
@@ -61,7 +59,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest",
+    "test": "vitest run --passWithNoTests",
     "test:ui": "vitest --ui",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint src --ext ts,tsx --fix"

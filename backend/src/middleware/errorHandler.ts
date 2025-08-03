@@ -4,14 +4,14 @@ import { logger } from '../utils/logger';
 export interface AppError extends Error {
   statusCode?: number;
   code?: string;
-  details?: any;
+  details?: unknown;
 }
 
 export const errorHandler = (
   error: AppError,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ) => {
   const statusCode = error.statusCode || 500;
   const message = error.message || 'Internal Server Error';
@@ -39,9 +39,15 @@ export const errorHandler = (
   res.status(statusCode).json(errorResponse);
 };
 
-export const createError = (message: string, statusCode: number = 500, code?: string): AppError => {
+export const createError = (
+  message: string,
+  statusCode: number = 500,
+  code?: string
+): AppError => {
   const error = new Error(message) as AppError;
   error.statusCode = statusCode;
-  error.code = code;
+  if (code !== undefined) {
+    error.code = code;
+  }
   return error;
-}; 
+};

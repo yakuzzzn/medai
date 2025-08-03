@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { toast } from 'react-hot-toast';
-import { 
-  Eye, 
-  Edit3, 
-  Save, 
-  Play, 
-  Pause, 
-  Volume2, 
-  CheckCircle, 
+import {
+  Edit3,
+  Save,
+  Play,
+  Pause,
+  Volume2,
+  CheckCircle,
   AlertCircle,
   Clock,
   User,
@@ -20,16 +19,13 @@ import { formatDistanceToNow } from 'date-fns';
 
 interface DraftViewerProps {
   draftId: string;
-  onSave?: (draft: Draft) => void;
 }
 
-const DraftViewer: React.FC<DraftViewerProps> = ({ draftId, onSave }) => {
+const DraftViewer: React.FC<DraftViewerProps> = ({ draftId }) => {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [editedSoap, setEditedSoap] = useState<SOAPData | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
 
   // Fetch draft data
   const { data: draftData, isLoading, error } = useQuery(

@@ -26,7 +26,6 @@
     "baseUrl": "./src",
     "paths": {
       "@/*": ["*"],
-      "@/types/*": ["../shared/types.ts"],
       "@/utils/*": ["utils/*"],
       "@/middleware/*": ["middleware/*"],
       "@/routes/*": ["routes/*"],
@@ -35,8 +34,7 @@
     }
   },
   "include": [
-    "src/**/*",
-    "../shared/**/*"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",
