@@ -14,7 +14,6 @@ export interface AuditLogData {
   ipAddress: string | undefined;
   userAgent: string | undefined;
 }
-
 export const auditLog = async (
   req: Request,
   res: Response,
