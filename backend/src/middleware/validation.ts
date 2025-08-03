@@ -4,15 +4,10 @@ import { createError } from './errorHandler';
 
 export const validateRequest = (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req);
-  
-  if (!errors.isEmpty()) {
-    const validationErrors = errors.array().map(error => ({
-      field: error.path,
-      message: error.msg,
-      value: error.value
-    }));
 
-    return next(createError('Validation failed', 422, 'VALIDATION_ERROR'));
+  if (!errors.isEmpty()) {
+    next(createError('Validation failed', 422, 'VALIDATION_ERROR'));
+    return;
   }
 
   next();
@@ -22,18 +17,21 @@ export const handleValidationErrors = (req: Request, res: Response, next: NextFu
   const errors = validationResult(req);
   
   if (!errors.isEmpty()) {
-    const validationErrors = errors.array().map(error => ({
-      field: error.path,
+    const validationErrors = errors.array().map((error) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      field: (error as any).path,
       message: error.msg,
-      value: error.value
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      value: (error as any).value
     }));
 
-    return res.status(422).json({
+    res.status(422).json({
       error: 'Validation failed',
       code: 'VALIDATION_ERROR',
       details: validationErrors
     });
+    return;
   }
 
   next();
-}; 
+};

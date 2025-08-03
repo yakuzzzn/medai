@@ -25,7 +25,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { API_BASE_URL } from '../config';
 import { AudioRecording } from '../../shared/types';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface RecordingScreenProps {
   route: {
@@ -42,8 +42,6 @@ const RecordingScreen: React.FC<RecordingScreenProps> = ({ route }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [recordedFilePath, setRecordedFilePath] = useState('');
-  const [audioLevel, setAudioLevel] = useState(0);
   const [isConnected, setIsConnected] = useState(true);
   const [offlineRecordings, setOfflineRecordings] = useState<AudioRecording[]>([]);
 
@@ -101,26 +99,24 @@ const RecordingScreen: React.FC<RecordingScreenProps> = ({ route }) => {
 
   const startRecording = async () => {
     try {
-      const result = await audioRecorderPlayer.current.startRecorder(
-        undefined,
-        {
-          AudioEncoderAndroid: AudioEncoderAndroidType.AAC,
-          AudioSourceAndroid: AudioSourceAndroidType.MIC,
-          AVEncoderAudioQualityKeyIOS: AVEncoderAudioQualityIOSType.high,
-          AVNumberOfChannelsKeyIOS: 2,
-          AVFormatIDKeyIOS: AVEncodingOption.aac,
-          OutputFormatAndroid: OutputFormatAndroidType.AAC_ADTS,
-        }
-      );
+        await audioRecorderPlayer.current.startRecorder(
+          undefined,
+          {
+            AudioEncoderAndroid: AudioEncoderAndroidType.AAC,
+            AudioSourceAndroid: AudioSourceAndroidType.MIC,
+            AVEncoderAudioQualityKeyIOS: AVEncoderAudioQualityIOSType.high,
+            AVNumberOfChannelsKeyIOS: 2,
+            AVFormatIDKeyIOS: AVEncodingOption.aac,
+            OutputFormatAndroid: OutputFormatAndroidType.AAC_ADTS,
+          }
+        );
 
-      setRecordedFilePath(result);
-      setIsRecording(true);
-      setRecordingTime(0);
+        setIsRecording(true);
+        setRecordingTime(0);
 
-      audioRecorderPlayer.current.addRecordBackListener((e) => {
-        setRecordingTime(e.currentPosition);
-        setAudioLevel(Math.random() * 100); // Simulate audio level
-      });
+        audioRecorderPlayer.current.addRecordBackListener((e) => {
+          setRecordingTime(e.currentPosition);
+        });
 
     } catch (error) {
       console.error('Failed to start recording:', error);
@@ -133,8 +129,7 @@ const RecordingScreen: React.FC<RecordingScreenProps> = ({ route }) => {
       const result = await audioRecorderPlayer.current.stopRecorder();
       audioRecorderPlayer.current.removeRecordBackListener();
       
-      setIsRecording(false);
-      setAudioLevel(0);
+        setIsRecording(false);
 
       // Save recording locally
       await saveRecordingLocally(result);
@@ -185,12 +180,12 @@ const RecordingScreen: React.FC<RecordingScreenProps> = ({ route }) => {
     setIsUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append('file', {
-        uri: filePath,
-        type: 'audio/aac',
-        name: 'recording.aac',
-      } as any);
+        const formData = new FormData();
+        formData.append('file', {
+          uri: filePath,
+          type: 'audio/aac',
+          name: 'recording.aac',
+        } as unknown as { uri: string; type: string; name: string });
 
       if (patientId) {
         formData.append('patientId', patientId);
@@ -209,7 +204,7 @@ const RecordingScreen: React.FC<RecordingScreenProps> = ({ route }) => {
       });
 
       if (response.ok) {
-        const result = await response.json();
+        await response.json();
         Alert.alert(
           'Success',
           'Recording uploaded successfully. Processing will begin shortly.',

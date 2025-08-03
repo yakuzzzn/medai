@@ -1,17 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
 import { db } from '../database/connection';
+import { AuthenticatedRequest } from './auth';
 
 export interface AuditLogData {
-  userId?: string;
-  clinicId?: string;
+  userId: string | undefined;
+  clinicId: string | undefined;
   action: string;
   resourceType: string;
-  resourceId?: string;
-  oldValues?: Record<string, any>;
-  newValues?: Record<string, any>;
-  ipAddress?: string;
-  userAgent?: string;
+  resourceId: string | undefined;
+  oldValues?: Record<string, unknown>;
+  newValues?: Record<string, unknown>;
+  ipAddress: string | undefined;
+  userAgent: string | undefined;
 }
 
 export const auditLog = async (
@@ -20,14 +21,15 @@ export const auditLog = async (
   next: NextFunction
 ) => {
   const originalSend = res.send;
-  
-  res.send = function(data) {
+
+  res.send = function (data: unknown) {
     // Log the response for audit purposes
     const auditData: AuditLogData = {
-      userId: (req as any).user?.id,
-      clinicId: (req as any).user?.clinicId,
+      userId: (req as AuthenticatedRequest).user?.id,
+      clinicId: (req as AuthenticatedRequest).user?.clinicId,
       action: req.method,
       resourceType: req.path,
+      resourceId: undefined,
       ipAddress: req.ip,
       userAgent: req.get('User-Agent')
     };
@@ -74,8 +76,8 @@ export const logAuditEvent = async (auditData: AuditLogData) => {
 export const logDataAccess = (resourceType: string, resourceId?: string) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     const auditData: AuditLogData = {
-      userId: (req as any).user?.id,
-      clinicId: (req as any).user?.clinicId,
+      userId: (req as AuthenticatedRequest).user?.id,
+      clinicId: (req as AuthenticatedRequest).user?.clinicId,
       action: 'READ',
       resourceType,
       resourceId,
@@ -91,8 +93,8 @@ export const logDataAccess = (resourceType: string, resourceId?: string) => {
 export const logDataModification = (resourceType: string, resourceId?: string) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     const auditData: AuditLogData = {
-      userId: (req as any).user?.id,
-      clinicId: (req as any).user?.clinicId,
+      userId: (req as AuthenticatedRequest).user?.id,
+      clinicId: (req as AuthenticatedRequest).user?.clinicId,
       action: req.method,
       resourceType,
       resourceId,
