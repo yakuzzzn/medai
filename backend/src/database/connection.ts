@@ -1,4 +1,4 @@
-import { Pool, PoolClient } from 'pg';
+import { Pool } from 'pg';
 import { logger } from '../utils/logger';
 
 const pool = new Pool({
@@ -14,11 +14,11 @@ const pool = new Pool({
 });
 
 // Test the connection
-pool.on('connect', (client: PoolClient) => {
+pool.on('connect', () => {
   logger.info('New client connected to database');
 });
 
-pool.on('error', (err: Error, client: PoolClient) => {
+pool.on('error', (err: Error) => {
   logger.error('Unexpected error on idle client', err);
   process.exit(-1);
 });
@@ -36,7 +36,7 @@ export const initDatabase = async () => {
 };
 
 export const db = {
-  query: (text: string, params?: any[]) => pool.query(text, params),
+  query: (text: string, params?: unknown[]) => pool.query(text, params),
   getClient: () => pool.connect(),
   end: () => pool.end()
 };
