@@ -32,8 +32,15 @@ export const authMiddleware = (
       throw createError('Authentication configuration error', 500, 'AUTH_CONFIG_ERROR');
     }
 
-    const decoded = jwt.verify(token, secret) as any;
-    
+    interface JwtPayload {
+      id: string;
+      email: string;
+      role: string;
+      clinicId: string;
+    }
+
+    const decoded = jwt.verify(token, secret) as JwtPayload;
+
     req.user = {
       id: decoded.id,
       email: decoded.email,
