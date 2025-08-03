@@ -4,7 +4,6 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import { createServer } from 'http';
-import { Server as SocketIOServer } from 'socket.io';
 import dotenv from 'dotenv';
 import { logger } from './utils/logger';
 import { errorHandler } from './middleware/errorHandler';
@@ -14,31 +13,17 @@ import { validateRequest } from './middleware/validation';
 import { auditLog } from './middleware/audit';
 
 // Routes
-import authRoutes from './routes/auth';
-import audioRoutes from './routes/audio';
-import draftRoutes from './routes/drafts';
-import codingRoutes from './routes/coding';
-import ehrRoutes from './routes/ehr';
-import userRoutes from './routes/users';
-import analyticsRoutes from './routes/analytics';
 
 // Database
 import { initDatabase } from './database/connection';
 import { initRedis } from './database/redis';
 
 // WebSocket handlers
-import { setupWebSocketHandlers } from './websocket/handlers';
 
 dotenv.config();
 
 const app = express();
 const server = createServer(app);
-const io = new SocketIOServer(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
-    methods: ['GET', 'POST']
-  }
-});
 
 const PORT = process.env.PORT || 3000;
 
@@ -58,7 +43,13 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3001',
   credentials: true
 }));
-app.use(morgan('combined', { stream: { write: (message) => logger.info(message.trim()) } }));
+app.use(
+  morgan('combined', {
+    stream: {
+      write: (message: string) => logger.info(message.trim())
+    }
+  })
+);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -75,16 +66,9 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
-app.use('/v1/auth', authRoutes);
-app.use('/v1/audio', authMiddleware, audioRoutes);
-app.use('/v1/drafts', authMiddleware, draftRoutes);
-app.use('/v1/coding', authMiddleware, codingRoutes);
-app.use('/v1/ehr', authMiddleware, ehrRoutes);
-app.use('/v1/users', authMiddleware, userRoutes);
-app.use('/v1/analytics', authMiddleware, analyticsRoutes);
+// API routes (not implemented)
 
-// WebSocket setup
-setupWebSocketHandlers(io);
+// WebSocket setup not implemented
 
 // Error handling
 app.use(errorHandler);

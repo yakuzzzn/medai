@@ -39,9 +39,15 @@ export const errorHandler = (
   res.status(statusCode).json(errorResponse);
 };
 
-export const createError = (message: string, statusCode: number = 500, code?: string): AppError => {
+export const createError = (
+  message: string,
+  statusCode: number = 500,
+  code?: string
+): AppError => {
   const error = new Error(message) as AppError;
   error.statusCode = statusCode;
-  error.code = code;
+  if (code !== undefined) {
+    error.code = code;
+  }
   return error;
-}; 
+};

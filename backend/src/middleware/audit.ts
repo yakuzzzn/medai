@@ -4,17 +4,16 @@ import { db } from '../database/connection';
 import { AuthenticatedRequest } from './auth';
 
 export interface AuditLogData {
-  userId?: string;
-  clinicId?: string;
+  userId: string | undefined;
+  clinicId: string | undefined;
   action: string;
   resourceType: string;
-  resourceId?: string;
+  resourceId: string | undefined;
   oldValues?: Record<string, unknown>;
   newValues?: Record<string, unknown>;
-  ipAddress?: string;
-  userAgent?: string;
+  ipAddress: string | undefined;
+  userAgent: string | undefined;
 }
-
 export const auditLog = async (
   req: Request,
   res: Response,
@@ -29,6 +28,7 @@ export const auditLog = async (
       clinicId: (req as AuthenticatedRequest).user?.clinicId,
       action: req.method,
       resourceType: req.path,
+      resourceId: undefined,
       ipAddress: req.ip,
       userAgent: req.get('User-Agent')
     };
